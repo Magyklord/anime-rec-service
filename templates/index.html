@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Anime Recommender</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+
+  <div class="header">
+    <h1>Anime <span>Recommender</span></h1>
+    <p class="subtitle">{{ title_count }} titles indexed · Describe any vibe to find your next watch</p>
+  </div>
+
+  <div class="search-wrap">
+    <input
+      type="text"
+      id="query-input"
+      placeholder="Describe a mood, vibe, or story..."
+      autocomplete="off"
+      autofocus
+    >
+    <button class="btn" onclick="runSearch()">Search</button>
+  </div>
+
+  <div class="chips">
+    <span class="chip" onclick="searchFor('lonely wanderer haunted by the past, jazz and melancholy')">lonely wanderer · jazz</span>
+    <span class="chip" onclick="searchFor('psychological thriller with moral ambiguity and high stakes')">psychological thriller</span>
+    <span class="chip" onclick="searchFor('friendship and adventure on the high seas')">high seas adventure</span>
+    <span class="chip" onclick="searchFor('cute slice of life healing anime')">healing slice of life</span>
+    <span class="chip" onclick="searchFor('dark fantasy with war and political intrigue')">dark fantasy · war</span>
+    <span class="chip" onclick="searchFor('coming of age romance with emotional depth')">emotional romance</span>
+    <span class="chip" onclick="searchFor('giant robots and epic mecha battles')">mecha battles</span>
+  </div>
+
+  <div class="error-msg" id="error-box"></div>
+  <div class="loading" id="loading"><div class="spinner"></div>Searching…</div>
+
+  <div class="results" id="results-box"></div>
+
+  <div class="show-more-wrap">
+    <button class="btn-outline" id="show-more-btn" style="display:none" onclick="showMore()">
+      Show more results
+    </button>
+  </div>
+
+<script>
+  let lastQuery  = '';
+  let currentN   = 5;
+
+  // Allow pressing Enter in the search box
+  document.getElementById('query-input').addEventListener('keydown', e => {
+    if (e.key === 'Enter') runSearch();
+  });
+
+  function searchFor(text) {
+    document.getElementById('query-input').value = text;
+    runSearch();
+  }
+
+  async function runSearch(topN = 5) {
+    const query = document.getElementById('query-input').value.trim();
+    if (!query) return;
+
+    lastQuery = query;
+    currentN  = topN;
+
+    setLoading(true);
+    clearError();
+    clearResults();
+    document.getElementById('show-more-btn').style.display = 'none';
+
+    try {
+      const res = await fetch('/search', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query, top_n: topN })
+      });
+
+      if (!res.ok) throw new Error(`Server error (${res.status})`);
+
+      const data = await res.json();
+      if (data.length === 0) {
+        showError('No results found. Try a different description.');
+        return;
+      }
+
+      renderResults(data, query);
+      if (topN <= 10) {
+        document.getElementById('show-more-btn').style.display = 'inline-block';
+        document.getElementById('show-more-btn').textContent =
+          topN === 5 ? 'Show 10 more' : 'Show 20 more';
+      }
+
+    } catch (err) {
+      showError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function showMore() {
+    const nextN = currentN === 5 ? 15 : 25;
+    runSearch(nextN);
+  }
+
+  function renderResults(data, query) {
+    const box = document.getElementById('results-box');
+    box.innerHTML = `<p class="result-label">Results for &ldquo;${escHtml(query)}&rdquo;</p>`;
+
+    data.forEach((r, i) => {
+      const card = document.createElement('div');
+      card.className = 'card';
+      card.style.animationDelay = `${i * 40}ms`;
+
+      const scoreLabel = r.score ? `★ ${r.score}` : '—';
+      const pct = Math.round(r.hybrid * 100);
+      const genrePills = (r.genres || []).slice(0, 4)
+        .map(g => `<span class="genre-pill">${escHtml(g)}</span>`)
+        .join('');
+
+      card.innerHTML = `
+        <div class="card-top">
+          <span class="card-rank">#${i + 1}</span>
+          <span class="card-title">${escHtml(r.title || 'Unknown')}</span>
+          <span class="card-score"><span>${scoreLabel}</span></span>
+        </div>
+        <div class="genres">${genrePills}</div>
+        <div class="match-row">
+          <span class="match-label">Match</span>
+          <div class="bar-track">
+            <div class="bar-fill" style="width:${pct}%"></div>
+          </div>
+          <span class="match-value">${(r.hybrid).toFixed(3)}</span>
+        </div>`;
+
+      box.appendChild(card);
+    });
+  }
+
+  function setLoading(on) {
+    document.getElementById('loading').classList.toggle('active', on);
+  }
+  function clearResults() {
+    document.getElementById('results-box').innerHTML = '';
+  }
+  function showError(msg) {
+    const box = document.getElementById('error-box');
+    box.textContent = msg;
+    box.classList.add('active');
+  }
+  function clearError() {
+    document.getElementById('error-box').classList.remove('active');
+  }
+  function escHtml(str) {
+    return String(str)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+</script>
+
+</body>
+</html>
