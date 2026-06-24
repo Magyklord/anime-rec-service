@@ -49,27 +49,30 @@ Create a `.env` file in the project root:
 PG_PASSWORD=your_postgres_password
 ```
 
-### 4. Set up the database
+### 4. Restore the database
+
+A pre-built database dump (`animedb_dump.zip`) is included in the repo with 5,000+ titles already fetched and embedded. Restore it with:
+
+```bash
+python restore_db.py
+```
+
+This extracts the zip, creates the `animedb` database, loads all the data, and cleans up. Takes about a minute.
+
+### (Optional) Re-fetch data from scratch
+
+If you want to rebuild the database yourself instead of using the dump:
 
 ```bash
 python setup_pg.py
-```
-
-This creates the `animedb` database and the `titles` / `embeddings` tables.
-
-### 5. Fetch and embed anime data
-
-```bash
 python paginator.py
 ```
 
-Fetches 100 pages × 50 anime from AniList (5,000 titles), generates embeddings, and stores everything in PostgreSQL. Takes roughly 20–30 minutes. To fetch by rating instead of popularity:
+`paginator.py` fetches 100 pages × 50 anime from AniList and generates embeddings — takes roughly 20–30 minutes. Pass `score` as an argument to sort by rating instead of popularity:
 
 ```bash
 python paginator.py score
 ```
-
-Progress is logged to `logs/paginator.log` and printed to the terminal.
 
 ## Running
 
@@ -110,6 +113,8 @@ Commands inside the CLI:
 │   └── index.html    # Web UI
 ├── static/
 │   └── style.css     # Styles
+├── animedb_dump.zip  # Pre-built database dump (restore with restore_db.py)
+├── restore_db.py     # One-command database restore for new users
 ├── requirements.txt
 └── .env              # Not committed — see setup above
 ```
